@@ -1,19 +1,19 @@
 #!/data/data/com.termux/files/usr/bin/bash
 
-# لون النص
+# إعداد ألوان النصوص
 GREEN="\033[0;32m"
 RED="\033[0;31m"
 NC="\033[0m" # لون افتراضي
 
-# دالة التحقق من تثبيت الأدوات
+# التحقق من تثبيت الأداة
 check_and_install() {
-    echo -e "${GREEN}Checking necessary tools...${NC}"
+    echo -e "${GREEN}Checking and installing necessary tools...${NC}"
 
     # تحديث الحزم
     pkg update && pkg upgrade -y
 
-    # تثبيت الأدوات المطلوبة
-    for pkg in git build-essential cmake libtool autoconf automake openssl-dev; do
+    # تثبيت الحزم الضرورية
+    for pkg in git build-essential cmake libtool autoconf automake openssl-dev pkg-config; do
         if ! dpkg -s "$pkg" >/dev/null 2>&1; then
             echo -e "${GREEN}Installing $pkg...${NC}"
             pkg install -y "$pkg"
@@ -22,7 +22,7 @@ check_and_install() {
         fi
     done
 
-    # التحقق من libimobiledevice
+    # التحقق من وجود libimobiledevice
     if ! command -v ideviceinfo >/dev/null 2>&1; then
         echo -e "${RED}libimobiledevice is not installed. Installing...${NC}"
         install_libimobiledevice
@@ -31,53 +31,61 @@ check_and_install() {
     fi
 }
 
-# دالة تثبيت libimobiledevice
+# تثبيت مكتبة libimobiledevice
 install_libimobiledevice() {
     echo -e "${GREEN}Cloning libimobiledevice repository...${NC}"
-    git clone https://github.com/libimobiledevice/libimobiledevice.git
+    if [ ! -d "libimobiledevice" ]; then
+        git clone https://github.com/libimobiledevice/libimobiledevice.git || {
+            echo -e "${RED}Failed to clone repository. Check your internet connection.${NC}"
+            exit 1
+        }
+    fi
+
     cd libimobiledevice || exit
-    ./autogen.sh
-    make
-    make install
+    echo -e "${GREEN}Building and installing libimobiledevice...${NC}"
+    ./autogen.sh || { echo -e "${RED}Autogen failed.${NC}"; exit 1; }
+    make || { echo -e "${RED}Build failed.${NC}"; exit 1; }
+    make install || { echo -e "${RED}Installation failed.${NC}"; exit 1; }
     cd ..
     echo -e "${GREEN}libimobiledevice installed successfully.${NC}"
 }
 
-# دالة لعرض واجهة قراءة المعلومات
+# قراءة معلومات الهاتف
 show_device_info() {
-    echo -e "${GREEN}Connecting to the iPhone...${NC}"
+    echo -e "${GREEN}Fetching iPhone information...${NC}"
     if command -v ideviceinfo >/dev/null 2>&1; then
-        ideviceinfo
+        ideviceinfo || echo -e "${RED}Failed to connect to the device. Ensure the iPhone is connected and trusted.${NC}"
     else
-        echo -e "${RED}Error: libimobiledevice tools are not installed.${NC}"
+        echo -e "${RED}libimobiledevice tools are not installed.${NC}"
     fi
 }
 
 # القائمة الرئيسية
 main_menu() {
-    echo -e "${GREEN}Welcome to iPhone Info Tool${NC}"
-    echo -e "${GREEN}1. Check and Install Necessary Tools${NC}"
-    echo -e "${GREEN}2. Show iPhone Information${NC}"
-    echo -e "${GREEN}3. Exit${NC}"
-    read -p "Choose an option: " choice
+    while true; do
+        echo -e "${GREEN}\nWelcome to iPhone Info Tool${NC}"
+        echo -e "1. Check and Install Necessary Tools"
+        echo -e "2. Show iPhone Information"
+        echo -e "3. Exit"
+        read -p "Choose an option: " choice
 
-    case $choice in
-    1)
-        check_and_install
-        ;;
-    2)
-        show_device_info
-        ;;
-    3)
-        echo -e "${GREEN}Goodbye!${NC}"
-        exit 0
-        ;;
-    *)
-        echo -e "${RED}Invalid option. Try again.${NC}"
-        main_menu
-        ;;
-    esac
+        case $choice in
+        1)
+            check_and_install
+            ;;
+        2)
+            show_device_info
+            ;;
+        3)
+            echo -e "${GREEN}Goodbye!${NC}"
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}Invalid option. Please try again.${NC}"
+            ;;
+        esac
+    done
 }
 
-# تشغيل القائمة
+# بدء البرنامج
 main_menu
